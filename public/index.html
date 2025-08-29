@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>운명설계센터 – 사주 분석</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- (선택) 간단 스타일 -->
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 24px auto; padding: 0 16px; }
+    h1 { margin-bottom: 12px; }
+    label { display:block; margin: 8px 0 4px; }
+    input, select, button { padding: 8px; font-size: 14px; }
+    .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    pre { background: #f6f8fa; padding: 12px; overflow-x: auto; border-radius: 6px; }
+    .hint { color: #666; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>사주 분석 (MVP)</h1>
+
+  <div>
+    <div class="row">
+      <div>
+        <label>년</label>
+        <input id="year" type="number" value="1982" />
+      </div>
+      <div>
+        <label>월</label>
+        <input id="month" type="number" value="5" />
+      </div>
+      <div>
+        <label>일</label>
+        <input id="day" type="number" value="25" />
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:8px;">
+      <div>
+        <label>시</label>
+        <input id="hour" type="number" value="20" />
+      </div>
+      <div>
+        <label>분</label>
+        <input id="minute" type="number" value="0" />
+      </div>
+      <div>
+        <label>초</label>
+        <input id="second" type="number" value="0" />
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:8px;">
+      <div>
+        <label>성별</label>
+        <select id="sex">
+          <option value="M" selected>남</option>
+          <option value="F">여</option>
+        </select>
+      </div>
+      <div>
+        <label>시간대 (tz)</label>
+        <input id="tz" value="Asia/Seoul" />
+      </div>
+      <div>
+        <label>AI 해석 포함</label>
+        <select id="include_ai">
+          <option value="true" selected>true</option>
+          <option value="false">false</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <button id="run">분석하기</button>
+      <span class="hint">※ 서버와 같은 도메인에서 API를 호출하므로, API 주소를 따로 적을 필요가 없습니다.</span>
+    </div>
+  </div>
+
+  <h2 style="margin-top:24px;">요약 리포트</h2>
+  <pre id="text_report"></pre>
+
+  <h2>AI 해석</h2>
+  <pre id="ai_report"></pre>
+
+  <h2>전체 응답(JSON)</h2>
+  <pre id="raw"></pre>
+
+  <script>
+    async function analyze() {
+      try {
+        // 입력값 검증
+        const year = Number(document.getElementById('year').value);
+        const month = Number(document.getElementById('month').value);
+        const day = Number(document.getElementById('day').value);
+        const hour = Number(document.getElementById('hour').value);
+        const minute = Number(document.getElementById('minute').value);
+        const second = Number(document.getElementById('second').value);
+        
+        if (!year || !month || !day || hour === undefined) {
+          alert('년, 월, 일, 시는 필수 입력값입니다.');
+          return;
+        }
+        
+        if (year < 1900 || year > 2100) {
+          alert('년도는 1900-2100 범위여야 합니다.');
+          return;
+        }
+        
+        if (month < 1 || month > 12) {
+          alert('월은 1-12 범위여야 합니다.');
+          return;
+        }
+        
+        if (day < 1 || day > 31) {
+          alert('일은 1-31 범위여야 합니다.');
+          return;
+        }
+        
+        if (hour < 0 || hour > 23) {
+          alert('시는 0-23 범위여야 합니다.');
+          return;
+        }
+        
+        if (minute < 0 || minute > 59) {
+          alert('분은 0-59 범위여야 합니다.');
+          return;
+        }
+        
+        if (second < 0 || second > 59) {
+          alert('초는 0-59 범위여야 합니다.');
+          return;
+        }
+
+        const payload = {
+          year: year,
+          month: month,
+          day: day,
+          hour: hour,
+          minute: minute,
+          second: second,
+          sex: document.getElementById('sex').value,
+          tz: document.getElementById('tz').value,
+          calendar: "solar",
+          lunar_is_leap_month: false,
+          day_boundary_policy: "midnight",
+          prefer_precise_day_hour: true,
+          use_true_solar_time: true,
+          longitude_deg: 126.9784,
+          include_ai: document.getElementById('include_ai').value === "true",
+          ai_style: "부드럽고 실용적인 톤"
+        };
+
+        // 로딩 상태 표시
+        document.getElementById('run').textContent = '분석 중...';
+        document.getElementById('run').disabled = true;
+
+        // ★★★ 핵심: 상대경로로 호출합니다. (도메인/포트 하드코딩 금지)
+        const res = await fetch("/api/bazi/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.detail || `HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        const data = await res.json();
+        document.getElementById('text_report').textContent = data.text_report ?? "";
+        document.getElementById('ai_report').textContent   = data.ai_report ?? "(AI 해석 없음)";
+        document.getElementById('raw').textContent         = JSON.stringify(data, null, 2);
+        
+      } catch (error) {
+        console.error('분석 오류:', error);
+        alert(`분석 중 오류가 발생했습니다: ${error.message}`);
+        
+        // 오류 정보 표시
+        document.getElementById('text_report').textContent = `오류: ${error.message}`;
+        document.getElementById('ai_report').textContent = "오류로 인해 AI 해석을 생성할 수 없습니다.";
+        document.getElementById('raw').textContent = `오류 상세: ${error.stack || error.message}`;
+        
+      } finally {
+        // 로딩 상태 해제
+        document.getElementById('run').textContent = '분석하기';
+        document.getElementById('run').disabled = false;
+      }
+    }
+
+    document.getElementById('run').addEventListener('click', analyze);
+  </script>
+</body>
+</html>

@@ -40,6 +40,12 @@ class FourPillars:
     month_gan: str | None; month_zhi: str | None
     day_gan: str | None; day_zhi: str | None
     hour_gan: str | None; hour_zhi: str | None
+    
+    # 메타데이터 필드 추가
+    boundary_note: str | None = None
+    day_boundary_policy: str | None = None
+    solar_time_mode: str | None = None
+    longitude_deg: float | None = None
 
 # -------------------------
 # 1단계: 시간 정규화
@@ -775,11 +781,13 @@ def build_four_pillars(
         precise = calc_pillars_precise_all(local_dt, use_true_solar_time=use_true_solar_time, longitude_deg=longitude_deg)
         if precise:
             (yg, yz), (mg, mz), (dg, dz), (hg, hz), _dt_used = precise
-            fp = FourPillars(yg, yz, mg, mz, dg, dz, hg, hz)
-            fp._boundary_note = "precise_jieqi"
-            fp._day_boundary_policy = day_boundary_policy
-            fp._solar_time_mode = "apparent" if (use_true_solar_time and longitude_deg is not None) else "zone"
-            fp._longitude_deg = longitude_deg
+            fp = FourPillars(
+                yg, yz, mg, mz, dg, dz, hg, hz,
+                boundary_note="precise_jieqi",
+                day_boundary_policy=day_boundary_policy,
+                solar_time_mode="apparent" if (use_true_solar_time and longitude_deg is not None) else "zone",
+                longitude_deg=longitude_deg
+            )
             return fp  # ← 정밀 경로 성공 시 바로 반환
 
     # 2) 폴백: 기존 방식 (연/월은 정밀 가능 시 사용, 일주는 정책 적용)
@@ -802,12 +810,12 @@ def build_four_pillars(
         year_gan=y_gan, year_zhi=y_zhi,
         month_gan=m_gan, month_zhi=m_zhi,
         day_gan=day_gan, day_zhi=day_zhi,
-        hour_gan=hour_gan_han, hour_zhi=hour_branch_han
+        hour_gan=hour_gan_han, hour_zhi=hour_branch_han,
+        boundary_note=boundary_note,
+        day_boundary_policy=day_boundary_policy,
+        solar_time_mode="apparent" if (use_true_solar_time and longitude_deg is not None) else "zone",
+        longitude_deg=longitude_deg
     )
-    fp._boundary_note = boundary_note
-    fp._day_boundary_policy = day_boundary_policy
-    fp._solar_time_mode = "apparent" if (use_true_solar_time and longitude_deg is not None) else "zone"
-    fp._longitude_deg = longitude_deg
     return fp
 
 # -------------------------
@@ -909,10 +917,10 @@ def compute_bazi_payload(
             "month": {"gan": fp.month_gan, "zhi": fp.month_zhi},
             "day":   {"gan": fp.day_gan,   "zhi": fp.day_zhi},
             "hour":  {"gan": fp.hour_gan,  "zhi": fp.hour_zhi},
-            "boundary_policy": getattr(fp, "_boundary_note", "approx_jieqi"),
-            "day_boundary_policy": getattr(fp, "_day_boundary_policy", "midnight"),
-            "solar_time_mode": getattr(fp, "_solar_time_mode", "zone"),
-            "longitude_deg": getattr(fp, "_longitude_deg", None),
+            "boundary_policy": fp.boundary_note or "approx_jieqi",
+            "day_boundary_policy": fp.day_boundary_policy or "midnight",
+            "solar_time_mode": fp.solar_time_mode or "zone",
+            "longitude_deg": fp.longitude_deg,
         },
         "hidden_stems": hidden,
         "wuxing": {

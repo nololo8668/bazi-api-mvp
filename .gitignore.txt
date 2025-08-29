@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual env
+.venv/
+venv/
+
+# Secrets (절대 올리지 마세요)
+.env
+.env.local
+OPENAI_API_KEY
+OPENAI_API_KEY.txt
+OPENAI_API_KEY.env
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Node (프론트 폴더 쓰는 경우)
+node_modules/
+
+# Render/Deploy cache (있다면)
+.render/
